@@ -2,22 +2,20 @@
 #include <stdio.h>
 #include <string.h>
 
-extern uint8_t k;
-extern uint8_t l;
-#define K_MAX 8
-#define L_MAX 8
+#define K_MAX 4
+#define L_MAX 4
 
+// Function Prototypes (from KeyGen_internal.c)
 void H(uint8_t seed[32]);
 
 void ExpandA(uint8_t seed[32], int32_t A[K_MAX][L_MAX][256]);
 void ExpandS(uint8_t seed[64], int32_t s1[L_MAX][256], int32_t s2[K_MAX][256]);
 
-
 int main() {
   printf("Starting KeyGen Test...\n");
 
   // 1. Test H
-  uint8_t seed[32] = {0}; 
+  uint8_t seed[32] = {0};
   printf("Testing H...\n");
   H(seed);
 

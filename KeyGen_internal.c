@@ -7,9 +7,7 @@
 #include "keccakf1600.h"
 
 uint8_t k = 4;
-uint8_t l = 4; // matrix dimension
-
-#define ETA 2 // Dilithium2 parameter
+uint8_t l = 4;
 
 void H(uint8_t seed[32]) {
   /* Generates a public-private key pair from a seed. */
@@ -86,20 +84,32 @@ void RejNTTPoly(uint8_t seed[34], int32_t a[256]) {
 }
 
 void RejBoundedPoly(uint8_t seed[66], int32_t a[256]) {
+  /* Samples an element a in R with coefficients in [-eta, ..., eta] omputed
+  via rejection sampling from rho (the seed). */
+  int j = 0;
+
   shake256incctx state;
   shake256_inc_init(&state);
   shake256_inc_absorb(&state, seed, 66);
   shake256_inc_finalize(&state);
 
-  int j = 0;
   while (j < 256) {
-    uint8_t out[1];
-    shake256_inc_squeeze(out, 1, &state);
+    uint8_t z; // H.Squeeze(ctx, 1)
+    shake256_inc_squeeze(&z, 1, &state);
 
-    int32_t val = (int32_t)(out[0] & 0x0F);
+    uint8_t b0 = z % 16;
+    uint8_t b1 = z / 16;
 
-    if (val <= 2 * ETA) {
-      a[j] = ETA - val;
+    int32_t z0 = CoeffFromHalfByte(b0); // z mod 16
+    int32_t z1 = CoeffFromHalfByte(b1); // floor(z / 16)
+
+    if (z0 != -1) {
+      a[j] = z0;
+      j++;
+    }
+
+    if (z1 != -1 && j < 256) {
+      a[j] = z1;
       j++;
     }
   }
