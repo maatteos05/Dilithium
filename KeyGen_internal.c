@@ -232,11 +232,16 @@ void pkEncode(uint8_t *pk, uint8_t rho[32], int32_t t1[k][256]) {
 
 #define sk_len 128 + 32 * (k + l) * (bit_len(2 * ETA))
 
-void skEncode(uint8_t sk[sk_len], uint8_t rho[32], uint8_t K[32],
-              uint8_t tr[64], int32_t s1[l][256], int32_t s2[k][256],
-              int32_t t_0[k][256]) {
+void skEncode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
+              int32_t s1[l][256], int32_t s2[k][256], int32_t t_0[k][256]) {
   /* Encodes a secret key for ML-DSA into a byte string */
   // int len = 128 + 32 * (k + l) * (bit_len(2 * ETA));
+
+  // initialize the secret key bite string to zeros
+  for (int i = 0; i < sk_len; i++) {
+    sk[i] = 0;
+  }
+
   memcpy(sk, rho, 32); // sk <-- rho||K||tr
   memcpy(sk + 32, K, 32);
   memcpy(sk + 64, tr, 64);
@@ -260,7 +265,7 @@ void skEncode(uint8_t sk[sk_len], uint8_t rho[32], uint8_t K[32],
   return;
 }
 
-int KeyGen_internal(uint8_t seed[32]) {
+int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   /* Generates a public-private key pair from a seed*/
   uint8_t rho[32];
   uint8_t rho_p[64];
@@ -278,9 +283,7 @@ int KeyGen_internal(uint8_t seed[32]) {
   int32_t t_decomp[k][256][2];
   int32_t t_1[k][256];
 
-  uint8_t pk;
   uint8_t tr[64];
-  uint8_t sk[sk_len];
 
   memcpy(input, seed, 32);
   input[32] = k;
@@ -320,7 +323,7 @@ int KeyGen_internal(uint8_t seed[32]) {
   // get the public key
   pkEncode(&pk, rho, t_1);
   H(&pk, tr, 64); // tr in B^64 (64 bytes string)
-  skEncode(sk, rho, K, tr, s1, s2, t_0);
+  skEncode(&sk, rho, K, tr, s1, s2, t_0);
 
   return 0;
 }
