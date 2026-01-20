@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #define ETA 2
 
@@ -51,4 +52,73 @@ int32_t CoeffFromHalfByte(uint8_t b) {
     }
   }
   return -1;
+}
+
+void IntegerToBits(uint8_t *y, int32_t x, int alpha) {
+  int32_t x_prime = x;
+  for (int i = 0; i < alpha; i++) {
+    y[i] = x_prime % 2;
+    x_prime = x_prime / 2;
+  }
+}
+
+int bit_len(uint32_t x) {
+  /* Computes the bit length of an integer */
+  if (x == 0)
+    return 0;
+  int length = 0;
+  while (x > 0) {
+    x >>= 1;
+    length++;
+  }
+  return length;
+}
+
+void BitsToBytes(uint8_t *z, uint8_t *y, int alpha) {
+  /* Algorithm 12: Converts a bit string into a byte string.
+     Input: A bit string y of length alpha.
+     Output: A byte string z of length ceil(alpha/8).
+  */
+  int out_len = (alpha + 7) / 8; // ceil(alpha / 8)
+
+  for (int i = 0; i < out_len; i++) {
+    z[i] = 0;
+  }
+
+  for (int i = 0; i < alpha; i++) {
+    z[i / 8] += y[i] * (1 << (i % 8));
+  }
+}
+
+void SimpleBitPack(uint8_t *z, int32_t w[256], int b) {
+  /* Algorithm 16: Encodes a polynomial w into a byte string.
+     Input: b (bound), w (polynomial with 256 coefficients in [0, b]).
+     Output: Byte string of length 32 * bitlen(b).
+  */
+  int d = bit_len(b);
+  int total_bits = 256 * d;
+
+  uint8_t bits[total_bits];
+
+  for (int i = 0; i < 256; i++) {
+    IntegerToBits(bits + i * d, w[i], d);
+  }
+
+  BitsToBytes(z, bits, total_bits);
+  return;
+}
+
+void BitPack(uint8_t *z, int32_t w[256], int a, int b) {
+  /* Encode a polynomial into a byte string */
+  int d = bit_len(a + b);
+  int total_bits = 256 * d;
+
+  uint8_t bits[total_bits];
+
+  for (int i = 0; i < 256; i++) {
+    IntegerToBits(bits + i * d, b - w[i], d);
+  }
+
+  BitsToBytes(z, bits, total_bits);
+  return;
 }
