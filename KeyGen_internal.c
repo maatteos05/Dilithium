@@ -1,12 +1,14 @@
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "NTT-1_zetas.c"
-#include "NTT_zetas.c"
+// #include "NTT-1_zetas.c"
+// #include "NTT_zetas.c"
 #include "NTTarithmetic.c"
 #include "aux_funcs.h"
 #include "fips202.h"
+#include "zetas_array.c"
 
 #define q 8380417
 #define d 13
@@ -21,7 +23,6 @@ void H(uint8_t *input, uint8_t *output, size_t out_len) {
   shake256_inc_init(&state);
   shake256_inc_absorb(&state, input, 34);
   shake256_inc_finalize(&state);
-
   shake256_inc_squeeze(output, out_len, &state);
 
   // free memory held by context
@@ -36,10 +37,11 @@ void RejBoundedPoly(uint8_t seed[66], int32_t a[256]);
 
 void ExpandA(uint8_t rho[32], int32_t A[k][l][256]) {
   /* Sample a kxl matrix A of elements of R_q */
+  uint8_t rho_p[34];
   for (uint8_t r = 0; r < k; r++) {
     for (uint8_t s = 0; s < l; s++) {
-      uint8_t rho_p[34];
       memcpy(rho_p, rho, 32);
+
       rho_p[32] = s;
       rho_p[33] = r;
 
@@ -142,17 +144,25 @@ void NTT(int32_t w[256], int32_t w_hat[256]) {
   int m = 0;
   int len = 128;
 
-  while (len > 0) {
+  while (len >= 1) {
     int start = 0;
     while (start < 256) {
       m = m + 1;
-      int32_t z = zetas[m]; // z <-- zeta^(BitRev_8(m)) mod q
+      int64_t z = zetas[m]; // Use int64 to avoid overflow
       for (int j = start; j < start + len; j++) {
-        int32_t t = (z * w_hat[j + len]) % q;
+        int32_t t = (int32_t)(((int64_t)z * w_hat[j + len]) % q);
+        if (t < 0)
+          t += q;
+
         w_hat[j + len] = (w_hat[j] - t) % q;
+        if (w_hat[j + len] < 0)
+          w_hat[j + len] += q;
+
         w_hat[j] = (w_hat[j] + t) % q;
+        if (w_hat[j] < 0)
+          w_hat[j] += q;
       }
-      start = start + 2;
+      start = start + 2 * len;
     }
     len = len / 2;
   }
@@ -172,21 +182,32 @@ void NTT_inv(int32_t w_hat[256], int32_t w[256]) {
     int start = 0;
     while (start < 256) {
       m = m - 1;
-      int32_t z = zetas_inv[m];
+      int64_t z = -zetas[m]; // -zetas[m] mod q, always positive
 
       for (int j = start; j < start + len; j++) {
         int32_t t = w[j];
+
         w[j] = (t + w[j + len]) % q;
-        w[j + len] = (t - w[j + len]) % q;
-        w[j + len] = (z * w[j + len]) % q;
+        if (w[j] < 0)
+          w[j] += q;
+
+        int32_t diff = (t - w[j + len]) % q;
+        if (diff < 0)
+          diff += q;
+
+        w[j + len] = (int32_t)((z * diff) % q);
+        if (w[j + len] < 0)
+          w[j + len] += q;
       }
       start += 2 * len;
     }
     len *= 2;
   }
-  int f = 8347681;
+  int64_t f = 8347681;
   for (int j = 0; j < 256; j++) {
-    w[j] = (f * w[j]) % q;
+    w[j] = (int32_t)((f * w[j]) % q);
+    if (w[j] < 0)
+      w[j] += q;
   }
   return;
 }
@@ -321,9 +342,9 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   }
 
   // get the public key
-  pkEncode(&pk, rho, t_1);
-  H(&pk, tr, 64); // tr in B^64 (64 bytes string)
-  skEncode(&sk, rho, K, tr, s1, s2, t_0);
+  pkEncode(pk, rho, t_1);
+  H(pk, tr, 64); // tr in B^64 (64 bytes string)
+  skEncode(sk, rho, K, tr, s1, s2, t_0);
 
   return 0;
 }
