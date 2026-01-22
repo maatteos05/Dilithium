@@ -14,20 +14,22 @@
 #define d 13
 #define ETA 2
 
-uint8_t k = 4;
-uint8_t l = 4;
+#define k 4
+#define l 4
 
-void H(uint8_t *input, uint8_t *output, size_t out_len) {
+// bit_len(8380416) = 23, so (23 - 13) = 10
+size_t pk_size = 32 * k * 10; // 32 * 4 * 10 = 1280
+
+void H(uint8_t *input, size_t input_len, uint8_t *output, size_t out_len) {
   // declare the hash function
   shake256incctx state;
   shake256_inc_init(&state);
-  shake256_inc_absorb(&state, input, 34);
+  shake256_inc_absorb(&state, input, input_len);
   shake256_inc_finalize(&state);
   shake256_inc_squeeze(output, out_len, &state);
 
   // free memory held by context
   shake256_inc_ctx_release(&state);
-
   return;
 }
 
@@ -251,37 +253,36 @@ void pkEncode(uint8_t *pk, uint8_t rho[32], int32_t t1[k][256]) {
   return;
 }
 
-#define sk_len 128 + 32 * (k + l) * (bit_len(2 * ETA))
+#define sk_len 128 + 32 * ((k + l) * (bit_len(2 * ETA)) + d * k)
 
 void skEncode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
               int32_t s1[l][256], int32_t s2[k][256], int32_t t_0[k][256]) {
   /* Encodes a secret key for ML-DSA into a byte string */
-  // int len = 128 + 32 * (k + l) * (bit_len(2 * ETA));
 
   // initialize the secret key bite string to zeros
+
   for (int i = 0; i < sk_len; i++) {
     sk[i] = 0;
   }
-
   memcpy(sk, rho, 32); // sk <-- rho||K||tr
   memcpy(sk + 32, K, 32);
   memcpy(sk + 64, tr, 64);
 
+  int b = 32 * (d - 1);
   uint8_t c[128];
+  uint8_t c2[b];
+
   for (int i = 0; i < l; i++) {
     BitPack(c, s1[i], ETA, ETA);
-    memcpy(sk + 128 + 128 * i, c, 128);
+    memcpy(sk + 128 + 96 * i, c, 96);
   }
-
   for (int i = 0; i < k; i++) {
     BitPack(c, s2[i], ETA, ETA);
-    memcpy(sk + 128 + 128 * (l + i), c, 128);
+    memcpy(sk + 128 + 96 * (l + i), c, 96);
   }
-
   for (int i = 0; i < k; i++) {
-    BitPack(c, t_0[i], ETA, ETA);
-    memcpy(sk + 128 + 128 * (l + k + i), c,
-           32 * (((1 << (d - 1)) - 1) + (1 << (d - 1))));
+    BitPack(c2, t_0[i], -(1 << (d - 1)), (1 << (d - 1)));
+    memcpy(sk + 128 + 96 * (l + k + i), c2, b);
   }
   return;
 }
@@ -291,8 +292,8 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   uint8_t rho[32];
   uint8_t rho_p[64];
   uint8_t K[32];
-  uint8_t *input;
-  uint8_t *output;
+  uint8_t input[34];
+  uint8_t output[128];
 
   int32_t A[k][l][256];
   int32_t s1[l][256];
@@ -305,20 +306,75 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   int32_t t_1[k][256];
 
   uint8_t tr[64];
-
+  size_t in_len_H;
   memcpy(input, seed, 32);
-  input[32] = k;
-  input[33] = l;
+  input[32] = k % 256;
+  input[33] = l % 256;
 
-  H(input, output,
+  in_len_H = 34;
+
+  //   printf("the input for H is: ");
+  //   for (int i = 0; i < 34; i++) {
+  //     printf("%d", input[i]);
+  //   }
+  //   printf("\n");
+
+  H(input, in_len_H, output,
     128); // hash function generates rho, rho_p, K from random seed
 
+  //   printf("the output for H is: ");
+  //   for (int i = 0; i < 128; i++) {
+  //     printf("%d", output[i]);
+  //   }
+  //   printf("\n");
+
   memcpy(rho, output, 32);
+
+  //   printf("  rho is: ");
+  //   for (int i = 0; i < 32; i++) {
+  //     printf("%d", rho[i]);
+  //   }
+  //   printf("\n");
+
   memcpy(rho_p, output + 32, 64);
+
+  //   printf("  rho_p is: ");
+  //   for (int i = 0; i < 64; i++) {
+  //     printf("%d", rho_p[i]);
+  //   }
+  //   printf("\n");
+
   memcpy(K, output + 96, 32);
 
-  ExpandA(rho, A);        // Generate Matrix A in NTT form
+  //   printf("  K is: ");
+  //   for (int i = 0; i < 32; i++) {
+  //     printf("%d", K[i]);
+  //   }
+  //   printf("\n");
+
+  //   uint8_t quick_check[128];
+  //   int checker = 0;
+  //   memcpy(quick_check, rho, 32);
+  //   memcpy(quick_check + 32, rho_p, 64);
+  //   memcpy(quick_check + 96, K, 32);
+
+  //   for (int i = 0; i < 128; i++) {
+  //     if (quick_check[i] != output[i]) {
+  //       printf("error: wrong copy from H output");
+  //       checker = 1;
+  //     }
+  //   }
+  //   printf("comparison done\n");
+  //   if (checker == 0) {
+  //     printf("Success...\n");
+  //   }
+  //   printf("Entering ExpandA....\n");
+  ExpandA(rho, A); // Generate Matrix A in NTT form
+                   //   printf("ExpandA done\n");
+
+  //   printf("Entering ExpandS.... \n");
   ExpandS(rho_p, s1, s2); // Samples vectors s_1 in R^l and s_2 in R^k
+                          //   printf("ExpandS done \n");
 
   for (int i = 0; i < l; i++) {
     NTT(s1[i], s1_NTT[i]);
@@ -340,10 +396,9 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
       t_1[i][j] = t_decomp[i][j][1];
     }
   }
-
   // get the public key
   pkEncode(pk, rho, t_1);
-  H(pk, tr, 64); // tr in B^64 (64 bytes string)
+  H(pk, pk_size, tr, 64); // tr in B^64 (64 bytes string)
   skEncode(sk, rho, K, tr, s1, s2, t_0);
 
   return 0;

@@ -16,7 +16,7 @@ int main() {
   size_t out_len = 64;
   uint8_t *out = malloc(out_len);
   printf("Testing H...\n");
-  H(seed, out, out_len);
+  H(seed, 32, out, out_len);
   printf("the output is: %u\n", *out);
 
   // 2. Test ExpandA
