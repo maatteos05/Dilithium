@@ -7,6 +7,8 @@
 /* Computes a base-256 representation of x mod 256^alpha */
 void IntegerToBytes(uint8_t *y, uint32_t x, size_t alpha);
 
+void BytesToBits(uint8_t *y, uint8_t *z, size_t alpha);
+
 void IntegerToBits(uint8_t *y, int32_t x, int alpha);
 
 /* Generates an element in {0,1,..., q = 8380417} U {-1} */
@@ -19,4 +21,10 @@ void SimpleBitPack(uint8_t *z, int32_t w[256], int b);
 int bit_len(uint32_t x);
 
 void BitPack(uint8_t *z, int32_t w[256], int a, int b);
+
+void BitUnpack(int32_t w[256], int a, int b, uint8_t *v);
+
+void Decompose(int32_t r, int32_t r_decomp[2]);
+
+int HighBits(int32_t r);
 #endif

@@ -5,17 +5,7 @@
 
 // #include "NTT-1_zetas.c"
 // #include "NTT_zetas.c"
-#include "NTTarithmetic.c"
-#include "aux_funcs.h"
-#include "fips202.h"
-#include "zetas_array.c"
-
-#define q 8380417
-#define d 13
-#define ETA 2
-
-#define k 4
-#define l 4
+#include "KeyGen_internal.h"
 
 // bit_len(8380416) = 23, so (23 - 13) = 10
 size_t pk_size = 32 * k * 10; // 32 * 4 * 10 = 1280
@@ -38,7 +28,10 @@ void RejNTTPoly(uint8_t seed[34], int32_t a[256]);
 void RejBoundedPoly(uint8_t seed[66], int32_t a[256]);
 
 void ExpandA(uint8_t rho[32], int32_t A[k][l][256]) {
-  /* Sample a kxl matrix A of elements of R_q */
+  /* Sample a kxl matrix A of elements of R_q
+     Input: a see rho
+     Output: matrix A
+     */
   uint8_t rho_p[34];
   for (uint8_t r = 0; r < k; r++) {
     for (uint8_t s = 0; s < l; s++) {

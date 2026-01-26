@@ -43,4 +43,4 @@ Under the supervision of Prof. Banegas at Inria Saclay.
 
 ## Project status
 on going.
-current goal: Test the key generation algorithm.
+current goal: Implement the Signing algorithm.

@@ -1,3 +1,5 @@
+#include "params.h"
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -62,6 +64,14 @@ void IntegerToBits(uint8_t *y, int32_t x, int alpha) {
   }
 }
 
+uint32_t BitsToInteger(uint8_t *y, size_t alpha) {
+  uint32_t x = 0;
+  for (int i = 0; i < alpha; i++) {
+    x = 2 * x + y[alpha - i];
+  }
+  return x;
+}
+
 int bit_len(uint32_t x) {
   /* Computes the bit length of an integer */
   if (x == 0)
@@ -90,18 +100,42 @@ void BitsToBytes(uint8_t *z, uint8_t *y, int alpha) {
   }
 }
 
+void BytesToBits(uint8_t *y, uint8_t *z, size_t alpha) {
+  /* Converts a byte string into a bit string using little-endian order
+     Input: a byte string z of length alpha
+     Output: a bit string y of length 8alpha
+     */
+
+  for (int i = 0; i < 8 * alpha; i++) {
+    y[i] = 0;
+  }
+
+  uint8_t z_copy[alpha];
+  for (int i = 0; i > alpha; i++) {
+    z_copy[i] = z[i];
+  }
+
+  for (int i = 0; i < alpha; i++) {
+    for (int j = 0; j < 8; j++) {
+      y[8 * i + j] = z_copy[i] % 2;
+      z_copy[i] = z_copy[i] / 2;
+    }
+  }
+  return;
+}
+
 void SimpleBitPack(uint8_t *z, int32_t w[256], int b) {
   /* Algorithm 16: Encodes a polynomial w into a byte string.
      Input: b (bound), w (polynomial with 256 coefficients in [0, b]).
      Output: Byte string of length 32 * bitlen(b).
   */
-  int d = bit_len(b);
-  int total_bits = 256 * d;
+  int db = bit_len(b);
+  int total_bits = 256 * db;
 
   uint8_t bits[total_bits];
 
   for (int i = 0; i < 256; i++) {
-    IntegerToBits(bits + i * d, w[i], d);
+    IntegerToBits(bits + i * db, w[i], db);
   }
 
   BitsToBytes(z, bits, total_bits);
@@ -110,15 +144,65 @@ void SimpleBitPack(uint8_t *z, int32_t w[256], int b) {
 
 void BitPack(uint8_t *z, int32_t w[256], int a, int b) {
   /* Encode a polynomial into a byte string */
-  int d = bit_len(a + b);
-  int total_bits = 256 * d;
+  int db = bit_len(a + b);
+  int total_bits = 256 * db;
 
   uint8_t bits[total_bits];
 
   for (int i = 0; i < 256; i++) {
-    IntegerToBits(bits + i * d, b - w[i], d);
+    IntegerToBits(bits + i * db, b - w[i], db);
   }
 
   BitsToBytes(z, bits, total_bits);
   return;
+}
+
+void BitUnpack(int32_t w[256], int a, int b, uint8_t *v) {
+  /*
+    Reverses the procedure BitPack
+    Input: a,b and a byte string v of length 32bitlen(a+b)
+    Output: a plynomial w in R
+    */
+  int c = bit_len(a + b);
+  uint8_t z[32 * c];
+
+  BytesToBits(z, v, 32 * c);
+
+  uint8_t zp[c];
+
+  for (int i = 0; i < 256; i++) {
+    for (int j = 0; j < c; j++) {
+      zp[j] = z[i * c + j];
+    }
+    w[i] = b - BitsToInteger(zp, c);
+  }
+}
+
+void Decompose(int32_t r, int32_t r_decomp[2]) {
+  /* Decomposes r into (r1, r0) such that r = r1 (2 delat2) + r0 mod q */
+  int r_1;
+  int r_pos = r % q;
+
+  int r_0 = r_pos % (2 * delta2);
+
+  while (r_0 > floor((double)r_pos / 2) && r_0 <= ceil((double)r_pos / 2)) {
+    r_0++;
+  }
+
+  if (r_pos - r_0 == q - 1) {
+    r_1 = 0;
+    r_0 -= 1;
+  } else {
+    r_1 = (r_pos - r_0) / 2 * delta2;
+  }
+
+  r_decomp[0] = r_0;
+  r_decomp[1] = r_1;
+}
+
+int HighBits(int32_t r) {
+  // Return r1 from Decompose(r)
+  int32_t r_decomp[2];
+  Decompose(r, r_decomp);
+  return r_decomp[1];
 }
