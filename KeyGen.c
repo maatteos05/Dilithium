@@ -26,7 +26,7 @@ int KeyGen(uint8_t *sk, uint8_t *pk) {
   if (check) {
     return -1;
   }
-  return KeyGen_internal(seed, sk, pk);
+  return KeyGen_internal(seed, pk, sk);
 }
 
 int main() {

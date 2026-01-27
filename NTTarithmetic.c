@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 void AddNTT(int len, int32_t u[len], int32_t v[len], int32_t w[len]) {
@@ -13,6 +14,15 @@ void MultiplyNTT(int len, int32_t c[len], int32_t a[len], int32_t b[len]) {
     c[i] = a[i] * b[i];
   }
 }
+
+void ScalarVectorNTT(size_t l, int32_t w[l][256], int32_t c[256],
+                     int32_t v[l][256]) {
+  w = malloc(l * sizeof(int32_t));
+  for (int i = 0; i < l; i++) {
+    MultiplyNTT(256, w[i], c, v[i]);
+  }
+}
+
 void MatrixVectorNTT(uint8_t k, uint8_t l, int32_t w[k][256],
                      int32_t M[k][l][256], int32_t v[l][256]) {
   /* Matrix to vector multiplication with elements in T_q

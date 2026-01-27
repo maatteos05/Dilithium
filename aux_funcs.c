@@ -111,7 +111,7 @@ void BytesToBits(uint8_t *y, uint8_t *z, size_t alpha) {
   }
 
   uint8_t z_copy[alpha];
-  for (int i = 0; i > alpha; i++) {
+  for (int i = 0; i < alpha; i++) {
     z_copy[i] = z[i];
   }
 

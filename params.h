@@ -7,3 +7,6 @@
 
 #define delta1 (1 << 17)
 #define delta2 (q - 1) / 88
+
+#define lambda 128
+#define tau 39
