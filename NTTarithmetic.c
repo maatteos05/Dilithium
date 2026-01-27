@@ -26,10 +26,9 @@ void MultiplyNTT(int len, int32_t c[len], const int32_t a[len],
   }
 }
 
-void ScalarVectorNTT(size_t l, int32_t w[l][256], int32_t c[256],
-                     int32_t v[l][256]) {
-  w = malloc(l * sizeof(int32_t));
-  for (int i = 0; i < l; i++) {
+void ScalarVectorNTT(size_t len, int32_t w[len][256], int32_t c[256],
+                     int32_t v[len][256]) {
+  for (int i = 0; i < len; i++) {
     MultiplyNTT(256, w[i], c, v[i]);
   }
 }

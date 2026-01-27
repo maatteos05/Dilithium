@@ -232,9 +232,13 @@ void Sign_internal(uint8_t *sk, uint8_t *Mp, size_t Mp_size, uint8_t rnd[32]) {
     NTT(c, c_NTT);
 
     ScalarVectorNTT(l, cs1_bis, c_NTT, s1_hat);
-
     for (int i = 0; i < l; i++) {
       NTT_inv(cs1_bis[i], cs1[i]);
+    }
+
+    ScalarVectorNTT(k, cs2_bis, c_NTT, s2_hat);
+    for (int i = 0; i < k; i++) {
+      NTT_inv(cs2_bis[i], cs2[i]);
     }
 
     // keep implementing here
