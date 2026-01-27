@@ -25,7 +25,7 @@ void Power2Round(int32_t r, int32_t r_decomp[2]);
 void pkEncode(uint8_t *pk, uint8_t rho[32], int32_t t1[k][256]);
 
 void skEncode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
-              int32_t s1[l][256], int32_t s2[k][256], int32_t t_0[k][256]);
+              int32_t s1[l][256], int32_t s2[k][256], int32_t t0[k][256]);
 
 void ExpandS(uint8_t seed[64], int32_t s1[l][256], int32_t s2[k][256]);
 
