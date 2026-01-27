@@ -8,7 +8,8 @@
 #include "KeyGen_internal.h"
 
 // bit_len(8380416) = 23, so (23 - 13) = 10
-size_t pk_size = 32 * k * 10; // 32 * 4 * 10 = 1280
+/* ML-DSA-44 public key length: 32 + k * (32*(bitlen(q-1)-d)) = 1312 */
+static const size_t pk_size = 1312;
 
 void H(uint8_t *input, size_t input_len, uint8_t *output, size_t out_len) {
   // declare the hash function
@@ -208,21 +209,20 @@ void NTT_inv(int32_t w_hat[256], int32_t w[256]) {
 }
 
 void Power2Round(int32_t r, int32_t r_decomp[2]) {
-  /* Decomposes r into r = r_1 2^d + r_0 mod q */
-  int r_pos = r % q;
+  /* FIPS 204 Algorithm 35 (Power2Round).
+   *
+   * Let r+ be the representative of r mod q in {0,...,q-1}.
+   * Return (r1, r0) such that r+ = r1*2^d + r0 with
+   *   r0 in [-(2^{d-1}-1), 2^{d-1}]  and  r1 in {0,...}
+   */
+  int32_t rp = r % q;
+  if (rp < 0) rp += q;
 
-  int p = 1 << d;
-  int r_0 = r_pos % p;
+  int32_t r1 = (rp + (1 << (d - 1)) - 1) >> d;
+  int32_t r0 = rp - (r1 << d);
 
-  while (r_0 > floor((double)r_pos / 2) && r_0 <= ceil((double)r_pos / 2)) {
-    r_0++;
-  }
-
-  int r_1 = (r_pos - r_0) / p;
-
-  r_decomp[0] = r_0;
-  r_decomp[1] = r_1;
-  return;
+  r_decomp[0] = r0;
+  r_decomp[1] = r1;
 }
 
 void pkEncode(uint8_t *pk, uint8_t rho[32], int32_t t1[k][256]) {
@@ -246,38 +246,45 @@ void pkEncode(uint8_t *pk, uint8_t rho[32], int32_t t1[k][256]) {
   return;
 }
 
-#define sk_len 128 + 32 * ((k + l) * (bit_len(2 * ETA)) + d * k)
+#define sk_len (128 + 32 * ((k + l) * (bit_len(2 * ETA)) + d * k))
 
 void skEncode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
-              int32_t s1[l][256], int32_t s2[k][256], int32_t t_0[k][256]) {
-  /* Encodes a secret key for ML-DSA into a byte string */
+              int32_t s1[l][256], int32_t s2[k][256], int32_t t0[k][256]) {
+ 
 
-  // initialize the secret key bite string to zeros
+  memset(sk, 0, sk_len);
 
-  for (int i = 0; i < sk_len; i++) {
-    sk[i] = 0;
-  }
-  memcpy(sk, rho, 32); // sk <-- rho||K||tr
+  /* sk = rho || K || tr || ... */
+  memcpy(sk, rho, 32);
   memcpy(sk + 32, K, 32);
   memcpy(sk + 64, tr, 64);
 
-  int b = 32 * (d - 1);
-  uint8_t c[128];
-  uint8_t c2[b];
+  const int s_pack_size = 32 * bit_len(2 * ETA); /* 96 for ETA=2 */
+  const int t0_pack_size = 32 * d;              /* 416 for d=13 */
 
+  uint8_t buf_s[128];
+  uint8_t buf_t0[32 * d];
+
+  /* s1 (l polynomials) */
   for (int i = 0; i < l; i++) {
-    BitPack(c, s1[i], ETA, ETA);
-    memcpy(sk + 128 + 96 * i, c, 96);
+    BitPack(buf_s, s1[i], ETA, ETA);
+    memcpy(sk + 128 + i * s_pack_size, buf_s, s_pack_size);
   }
+
+  /* s2 (k polynomials) */
   for (int i = 0; i < k; i++) {
-    BitPack(c, s2[i], ETA, ETA);
-    memcpy(sk + 128 + 96 * (l + i), c, 96);
+    BitPack(buf_s, s2[i], ETA, ETA);
+    memcpy(sk + 128 + (l + i) * s_pack_size, buf_s, s_pack_size);
   }
+
+  /* t0 (k polynomials), coefficients in [-(2^{d-1}-1), 2^{d-1}] */
+  const int a = (1 << (d - 1)) - 1;
+  const int b = (1 << (d - 1));
   for (int i = 0; i < k; i++) {
-    BitPack(c2, t_0[i], -(1 << (d - 1)), (1 << (d - 1)));
-    memcpy(sk + 128 + 96 * (l + k + i), c2, b);
+    BitPack(buf_t0, t0[i], a, b);
+    memcpy(sk + 128 + (l + k) * s_pack_size + i * t0_pack_size, buf_t0,
+           t0_pack_size);
   }
-  return;
 }
 
 int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
@@ -296,7 +303,8 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   int32_t t_inv[k][256];
   int32_t t[k][256];
   int32_t t_decomp[k][256][2];
-  int32_t t_1[k][256];
+  int32_t t_0_round[k][256]; /* t0 from Power2Round */
+  int32_t t_1[k][256];        /* t1 from Power2Round */
 
   uint8_t tr[64];
   size_t in_len_H;
@@ -306,68 +314,14 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
 
   in_len_H = 34;
 
-  //   printf("the input for H is: ");
-  //   for (int i = 0; i < 34; i++) {
-  //     printf("%d", input[i]);
-  //   }
-  //   printf("\n");
-
-  H(input, in_len_H, output,
-    128); // hash function generates rho, rho_p, K from random seed
-
-  //   printf("the output for H is: ");
-  //   for (int i = 0; i < 128; i++) {
-  //     printf("%d", output[i]);
-  //   }
-  //   printf("\n");
+  H(input, in_len_H, output, 128); // rho || rho' || K
 
   memcpy(rho, output, 32);
-
-  //   printf("  rho is: ");
-  //   for (int i = 0; i < 32; i++) {
-  //     printf("%d", rho[i]);
-  //   }
-  //   printf("\n");
-
   memcpy(rho_p, output + 32, 64);
-
-  //   printf("  rho_p is: ");
-  //   for (int i = 0; i < 64; i++) {
-  //     printf("%d", rho_p[i]);
-  //   }
-  //   printf("\n");
-
   memcpy(K, output + 96, 32);
 
-  //   printf("  K is: ");
-  //   for (int i = 0; i < 32; i++) {
-  //     printf("%d", K[i]);
-  //   }
-  //   printf("\n");
-
-  //   uint8_t quick_check[128];
-  //   int checker = 0;
-  //   memcpy(quick_check, rho, 32);
-  //   memcpy(quick_check + 32, rho_p, 64);
-  //   memcpy(quick_check + 96, K, 32);
-
-  //   for (int i = 0; i < 128; i++) {
-  //     if (quick_check[i] != output[i]) {
-  //       printf("error: wrong copy from H output");
-  //       checker = 1;
-  //     }
-  //   }
-  //   printf("comparison done\n");
-  //   if (checker == 0) {
-  //     printf("Success...\n");
-  //   }
-  //   printf("Entering ExpandA....\n");
-  ExpandA(rho, A); // Generate Matrix A in NTT form
-                   //   printf("ExpandA done\n");
-
-  //   printf("Entering ExpandS.... \n");
-  ExpandS(rho_p, s1, s2); // Samples vectors s_1 in R^l and s_2 in R^k
-                          //   printf("ExpandS done \n");
+  ExpandA(rho, A);
+  ExpandS(rho_p, s1, s2);
 
   for (int i = 0; i < l; i++) {
     NTT(s1[i], s1_NTT[i]);
@@ -386,13 +340,14 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   for (int i = 0; i < k; i++) {
     for (int j = 0; j < 256; j++) {
       Power2Round(t[i][j], t_decomp[i][j]);
+      t_0_round[i][j] = t_decomp[i][j][0];
       t_1[i][j] = t_decomp[i][j][1];
     }
   }
-  // get the public key
+
   pkEncode(pk, rho, t_1);
-  H(pk, pk_size, tr, 64); // tr in B^64 (64 bytes string)
-  skEncode(sk, rho, K, tr, s1, s2, t_0);
+  H(pk, pk_size, tr, 64);
+  skEncode(sk, rho, K, tr, s1, s2, t_0_round);
 
   return 0;
 }
