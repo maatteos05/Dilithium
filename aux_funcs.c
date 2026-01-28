@@ -1,5 +1,6 @@
 #include "params.h"
 #include <math.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -143,7 +144,7 @@ void SimpleBitPack(uint8_t *z, int32_t w[256], int b) {
 }
 
 void BitPack(uint8_t *z, int32_t w[256], int a, int b) {
-  /* Encode a polynomial into a byte string */
+  /* Encode a polynomial w into a byte string */
   int db = bit_len(a + b);
   int total_bits = 256 * db;
 
@@ -205,4 +206,51 @@ int HighBits(int32_t r) {
   int32_t r_decomp[2];
   Decompose(r, r_decomp);
   return r_decomp[1];
+}
+
+int LowBits(int32_t r) {
+  // Returns r0 from the output of Decompose(r)
+  int32_t r_decomp[2];
+  Decompose(r, r_decomp);
+  return r_decomp[0];
+}
+
+int32_t fqred(int64_t x) {
+  x %= (int64_t)q;
+  if (x < 0)
+    x += (int64_t)q;
+  return (int32_t)x;
+}
+
+int32_t infNorm(int32_t w[256]) {
+  /* Compute the max |w[i] mod^+- q| of w */
+  int32_t w_inf = 0;
+  int32_t temp;
+  for (int i = 0; i < 256; i++) {
+    temp = fqred(w[i]);
+    if (temp >= w_inf) {
+      w_inf = temp;
+    }
+  }
+  return w_inf;
+}
+
+void HintBitPack(uint8_t y[omega + k], bool h[k][256]) {
+  /* Encodes a polynomial vector h with binary coefficients into
+  a byte string.
+  Input: a polynomial vector h
+  Output: a byte string y of length omega + k that encodes h */
+  for (int i = 0; i < omega + k; i++) {
+    y[i] = 0;
+  }
+  int index = 0;
+  for (int i = 0; i < k; i++) {
+    for (int j = 0; j < 256; j++) {
+      if (h[i][j] != 0) {
+        y[index] = j;
+        index++;
+      }
+    }
+    y[omega + i] = index;
+  }
 }

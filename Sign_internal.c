@@ -133,6 +133,33 @@ void SampleInBall(uint8_t rho[lambda / 4], int32_t c[256]) {
   }
 }
 
+void SigEncode(uint8_t *sigma, size_t len, uint8_t c_tilde[len],
+               int32_t z[l][256], bool h[k][256]) {
+  /* Encodes a signature into a byte string
+  Input: c_tilde a byte string, z a polynomial in R^l, h in R^k_2
+  Output: Signature sigma a byte string */
+  uint8_t *temp;
+  uint8_t out[omega + k];
+  memcpy(sigma, c_tilde, len);
+  for (int i = 0; i < l; i++) {
+    BitPack(temp, z[i], delta1 - 1, delta1);
+    memcpy(sigma + len, temp, 32 * bit_len(2 * delta1 - 1));
+  }
+  HintBitPack(out, h);
+  memcpy(sigma, out, omega + k);
+}
+
+bool MakeHint(int32_t z, int32_t r) {
+  /* Computes hint bit indicating whether adding z to r
+     alters the high bits of r
+     Input: z, r in Z_q
+     Output: bool h*/
+  int r1 = HighBits(r);
+  int v1 = HighBits(r + z);
+
+  return (r1 != v1);
+}
+
 void Sign_internal(uint8_t *sk, uint8_t *Mp, size_t Mp_size, uint8_t rnd[32]) {
   /*
     Deterministic algorithm to generate a signature for a
@@ -176,6 +203,20 @@ void Sign_internal(uint8_t *sk, uint8_t *Mp, size_t Mp_size, uint8_t rnd[32]) {
   int32_t cs1[l][256];
   int32_t cs2_bis[k][256];
   int32_t cs2[k][256];
+
+  int32_t z[l][256];
+  int32_t r0[k][256];
+  int32_t z_inf;
+  int32_t r0_inf;
+  bool h[k][256];
+  int count_h;
+  int32_t ct0[k][256];
+  int32_t ct0_hat[k][256];
+  int32_t ct0_inf;
+
+  size_t len_sigma =
+      lambda / 4 + l * 32 * (1 + bit_len(delta1 - 1)) + omega + k;
+  uint8_t sigma[len_sigma];
 
   skDecode(sk, rho, K, tr, s1, s2, t_0);
 
@@ -241,8 +282,77 @@ void Sign_internal(uint8_t *sk, uint8_t *Mp, size_t Mp_size, uint8_t rnd[32]) {
       NTT_inv(cs2_bis[i], cs2[i]);
     }
 
-    // keep implementing here
+    AddVectorNTT(l, z, y, cs1);
+
+    for (int i = 0; i < l; i++) {
+      for (int j = 0; i < 256; j++) {
+        r0[i][j] = LowBits(w[i][j] - cs2[i][j]);
+      }
+    }
+
+    // Compute ||z||_inf where z in R^l_q
+    z_inf = 0;
+    int32_t temp;
+    for (int i = 0; i < l; i++) {
+      temp = infNorm(z[i]);
+      if (temp >= z_inf) {
+        z_inf = temp;
+      }
+    }
+    // Compute ||r0||_inf where r0 in R^l_q
+    r0_inf = 0;
+    for (int i = 0; i < k; i++) {
+      temp = infNorm(r0[i]);
+      if (temp >= r0_inf) {
+        r0_inf = temp;
+      }
+    }
+
+    if (z_inf >= delta1 - beta || r0_inf >= delta2 - beta) {
+      continue;
+    } else {
+
+      ScalarVectorNTT(k, ct0, c_NTT, t_0_hat);
+
+      for (int i = 0; i < k; i++) {
+        NTT_inv(ct0[i], ct0_hat[i]);
+      }
+
+      for (int i = 0; i < k; i++) {
+        for (int j = 0; j < 256; j++) {
+          h[i][j] =
+              MakeHint(-ct0_hat[i][j], w[i][j] - cs2[i][j] + ct0_hat[i][j]);
+          if (h[i][j] > 0) {
+            count_h++;
+          }
+        }
+      }
+
+      // Computes ||ct0_hat||_inf
+      ct0_inf = 0;
+      for (int i = 0; i < k; i++) {
+        temp = infNorm(ct0_hat[i]);
+        if (temp >= ct0_inf) {
+          ct0_inf = temp;
+        }
+      }
+
+      if (ct0_inf >= delta2 || count_h > omega) {
+        continue;
+      }
+    }
+
+    counter += l;
+    checker = false;
   }
+
+  for (int i = 0; i < l; i++) {
+    for (int j = 0; j < 256; j++) {
+      z[i][j] = fqred(z[i][j]);
+    }
+  }
+
+  SigEncode(sigma, lambda / 4, ctilde, z, h);
 
   return;
 }

@@ -3,19 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "aux_funcs.h"
 #include "params.h"
-
-static inline int32_t fqred(int64_t x) {
-  x %= (int64_t)q;
-  if (x < 0)
-    x += (int64_t)q;
-  return (int32_t)x;
-}
 
 void AddNTT(int len, int32_t u[len], const int32_t v[len],
             const int32_t w[len]) {
   for (int i = 0; i < len; i++) {
     u[i] = fqred((int64_t)v[i] + (int64_t)w[i]);
+  }
+}
+
+void AddVectorNTT(int len, int32_t u[len][256], int32_t w[len][256],
+                  int32_t v[len][256]) {
+  for (int i = 0; i < len; i++) {
+    AddNTT(256, u[i], w[i], v[i]);
   }
 }
 

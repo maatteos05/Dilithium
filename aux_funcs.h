@@ -1,6 +1,8 @@
 #ifndef AUX_FUNCS_H
 #define AUX_FUNCS_H
 
+#include "params.h"
+#include "stdbool.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -27,4 +29,13 @@ void BitUnpack(int32_t w[256], int a, int b, uint8_t *v);
 void Decompose(int32_t r, int32_t r_decomp[2]);
 
 int HighBits(int32_t r);
+
+int LowBits(int32_t r);
+
+int32_t fqred(int64_t x);
+
+int32_t infNorm(int32_t w[256]);
+
+void HintBitPack(uint8_t y[omega + k], bool h[k][256]);
+
 #endif

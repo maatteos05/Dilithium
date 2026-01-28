@@ -10,3 +10,6 @@
 
 #define lambda 128
 #define tau 39
+
+#define beta 78
+#define omega 80
