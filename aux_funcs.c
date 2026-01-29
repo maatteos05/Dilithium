@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define ETA 2
@@ -165,9 +166,10 @@ void BitUnpack(int32_t w[256], int a, int b, uint8_t *v) {
     Output: a plynomial w in R
     */
   int c = bit_len(a + b);
-  uint8_t z[32 * c];
+  int len = 32 * c;
+  uint8_t z[8 * len];
 
-  BytesToBits(z, v, 32 * c);
+  BytesToBits(z, v, len);
 
   uint8_t zp[c];
 
@@ -180,25 +182,30 @@ void BitUnpack(int32_t w[256], int a, int b, uint8_t *v) {
 }
 
 void Decompose(int32_t r, int32_t r_decomp[2]) {
-  /* Decomposes r into (r1, r0) such that r = r1 (2 delat2) + r0 mod q */
-  int r_1;
-  int r_pos = r % q;
+  /* FIPS 204 Algorithm 37: Decompose
+   * Decomposes r into (r1, r0) such that r = r1*(2*delta2) + r0 mod q
+   * with r0 in [-(delta2-1), delta2]
+   */
+  int32_t r_plus = r % q;
+  if (r_plus < 0)
+    r_plus += q; // Ensure positive representative
 
-  int r_0 = r_pos % (2 * delta2);
-
-  while (r_0 > floor((double)r_pos / 2) && r_0 <= ceil((double)r_pos / 2)) {
-    r_0++;
+  // r0 = r_plus mod± (2*delta2), centered to [-(delta2-1), delta2]
+  int32_t r0 = r_plus % (2 * delta2);
+  if (r0 > delta2) {
+    r0 -= 2 * delta2; // Center to negative
   }
 
-  if (r_pos - r_0 == q - 1) {
-    r_1 = 0;
-    r_0 -= 1;
+  int32_t r1;
+  if (r_plus - r0 == q - 1) {
+    r1 = 0;
+    r0 -= 1;
   } else {
-    r_1 = (r_pos - r_0) / 2 * delta2;
+    r1 = (r_plus - r0) / (2 * delta2); // Fixed: parentheses!
   }
 
-  r_decomp[0] = r_0;
-  r_decomp[1] = r_1;
+  r_decomp[0] = r0;
+  r_decomp[1] = r1;
 }
 
 int HighBits(int32_t r) {
@@ -225,10 +232,14 @@ int32_t fqred(int64_t x) {
 int32_t infNorm(int32_t w[256]) {
   /* Compute the max |w[i] mod^+- q| of w */
   int32_t w_inf = 0;
-  int32_t temp;
+  int32_t temp, centered;
   for (int i = 0; i < 256; i++) {
-    temp = fqred(w[i]);
-    if (temp >= w_inf) {
+    centered = fqred(w[i]); // [0, q-1]
+    if (centered > q / 2) {
+      centered = centered - q; // Now in [-(q-1)/2, (q-1)/2]
+    }
+    temp = (centered < 0) ? -centered : centered; // abs()
+    if (temp > w_inf) {
       w_inf = temp;
     }
   }

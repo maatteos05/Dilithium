@@ -13,3 +13,6 @@
 
 #define beta 78
 #define omega 80
+
+#define MLDSA44_PK_LEN 1312
+#define MLDSA44_SK_LEN 2560

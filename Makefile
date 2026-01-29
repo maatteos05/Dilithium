@@ -12,13 +12,17 @@ LDLIBS  ?= -lm
 LIB_SRCS = aux_funcs.c fips202.c keccakf1600.c randombytes.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 
-PROGS = keygen test_keygen test_aux_funcs
+PROGS = keygen sign test_keygen test_aux_funcs
 
 all: $(PROGS)
 
 # KeyGen.c #includes KeyGen_internal.c, which itself pulls in NTTarithmetic.c and zetas_array.c.
 # So: build KeyGen.o + the external helper objects only.
 keygen: KeyGen.o $(LIB_OBJS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
+
+# Sign.c #includes Sign_internal.c which #includes KeyGen_internal.c
+sign: Sign.o $(LIB_OBJS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
 
 # test_keygen.c #includes KeyGen_internal.c (so it already contains internal code),
