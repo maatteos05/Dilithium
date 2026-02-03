@@ -38,4 +38,7 @@ int32_t infNorm(int32_t w[256]);
 
 void HintBitPack(uint8_t y[omega + k], bool h[k][256]);
 
+void SimpleBitUnpack(int32_t w[256], int b, uint8_t v[32 * bit_len(b)]);
+
+int HintBitUnpack(bool h[k][256], uint8_t y[omega + k]);
 #endif

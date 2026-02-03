@@ -1,4 +1,5 @@
-#include "KeyGen_internal.c"
+#include "Sign_internal.h"
+#include "KeyGen_internal.h"
 #include "aux_funcs.h"
 #include "params.h"
 #include <stdbool.h>
@@ -25,14 +26,14 @@ void skDecode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
   int offset = 128;
 
   for (int i = 0; i < l; i++) {
-    for (int j = 0; j < size; j++) {
+    for (size_t j = 0; j < size; j++) {
       y[i][j] = sk[offset + size * i + j];
     }
   }
 
   offset += size * l;
   for (int i = 0; i < k; i++) {
-    for (int j = 0; j < size; j++) {
+    for (size_t j = 0; j < size; j++) {
       z[i][j] = sk[offset + size * i + j];
     }
   }
@@ -83,7 +84,7 @@ void w1Encode(int32_t w1[k][256], uint8_t *w1tilde, size_t len) {
   /* Encodes a polynomial vector w1 into a byte strin
   Input: w1 a polynomial
   Output: a byte string representation w1tilde with length len given*/
-  for (int i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     w1tilde[i] = 0;
   }
   size_t out_len = 32 * bit_len((q - 1) / (2 * delta2) - 1);
@@ -156,8 +157,8 @@ bool MakeHint(int32_t z, int32_t r) {
      alters the high bits of r
      Input: z, r in Z_q
      Output: bool h*/
-  int r1 = HighBits(r);
-  int v1 = HighBits(r + z);
+  int r1 = HighBits(fqred(r));
+  int v1 = HighBits(fqred(r + z)); // Apply modular reduction!
 
   return (r1 != v1);
 }
@@ -234,6 +235,7 @@ int Sign_internal(uint8_t *sigma, uint8_t *sk, uint8_t *Mp, size_t Mp_size,
   memcpy(H_in + 512, Mp, Mp_size);
 
   H(H_in, 512 + Mp_size, mu, 64);
+
   memcpy(in, K, 32);
   memcpy(in + 32, rnd, 32);
   memcpy(in + 64, mu, 64);
@@ -347,9 +349,13 @@ int Sign_internal(uint8_t *sigma, uint8_t *sk, uint8_t *Mp, size_t Mp_size,
     checker = false;
   }
 
+  // Center z values from [0, q-1] to signed representation [-(q-1)/2, (q-1)/2]
+  // BitPack expects values in [-(delta1-1), delta1], not [0, q-1]
   for (int i = 0; i < l; i++) {
     for (int j = 0; j < 256; j++) {
-      z[i][j] = fqred(z[i][j]);
+      if (z[i][j] > q / 2) {
+        z[i][j] = z[i][j] - q; // Center to negative half
+      }
     }
   }
   SigEncode(sigma, lambda / 4, ctilde, z, h);

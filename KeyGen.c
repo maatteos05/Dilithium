@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "KeyGen_internal.c"
+#include "KeyGen_internal.h"
 #include "randombytes.h"
 
 /* FIPS 204 ML-DSA-44 sizes (k=l=4, eta=2, d=13):

@@ -6,11 +6,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "NTTarithmetic.c"
+#include "NTTarithmetic.h"
 #include "aux_funcs.h"
 #include "fips202.h"
 #include "params.h"
-#include "zetas_array.c"
+
+// Declare zetas array (defined in zetas_array.c)
+extern const int32_t zetas[256];
 
 void H(uint8_t *input, size_t input_len, uint8_t *output, size_t out_len);
 

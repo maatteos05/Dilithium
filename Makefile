@@ -1,35 +1,47 @@
 # Minimal Makefile for the student's ML-DSA (FIPS 204) toy code
-# NOTE: several .c files are #included directly (e.g., KeyGen_internal.c,
-# NTTarithmetic.c, zetas_array.c). To avoid duplicate symbols, we do NOT
-# compile those included .c files as separate translation units.
+# All .c files are compiled as separate translation units
 
 CC      ?= gcc
 CFLAGS  ?= -O2 -g -std=c11 -Wall -Wextra
 CPPFLAGS?= -I.
 LDLIBS  ?= -lm
 
-# Support code that is *not* included via #include "... .c" in other files
+# Support/library code
 LIB_SRCS = aux_funcs.c fips202.c keccakf1600.c randombytes.c
 LIB_OBJS = $(LIB_SRCS:.c=.o)
 
-PROGS = keygen sign test_keygen test_aux_funcs
+# Internal implementation files (compiled as separate units now)
+INTERNAL_SRCS = KeyGen_internal.c Sign_internal.c Verify_internal.c NTTarithmetic.c zetas_array.c
+INTERNAL_OBJS = $(INTERNAL_SRCS:.c=.o)
+
+PROGS = keygen sign verify test_keygen test_aux_funcs
 
 all: $(PROGS)
 
-# KeyGen.c #includes KeyGen_internal.c, which itself pulls in NTTarithmetic.c and zetas_array.c.
-# So: build KeyGen.o + the external helper objects only.
-keygen: KeyGen.o $(LIB_OBJS)
+# KeyGen executable
+keygen: KeyGen.o $(INTERNAL_OBJS) $(LIB_OBJS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
 
-# Sign.c #includes Sign_internal.c which #includes KeyGen_internal.c
-sign: Sign.o $(LIB_OBJS)
+# Sign executable (with SIGN_MAIN to include main())
+Sign.o: Sign.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -DSIGN_MAIN -c -o $@ $<
+
+sign: Sign.o $(INTERNAL_OBJS) $(LIB_OBJS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
 
-# test_keygen.c #includes KeyGen_internal.c (so it already contains internal code),
-# and it does not use randombytes().
-test_keygen: test_keygen.o aux_funcs.o fips202.o keccakf1600.o
+# Sign_lib.o: Sign.c without main (for linking into verify)
+Sign_lib.o: Sign.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+# Verify executable
+verify: Verify.o Sign_lib.o $(INTERNAL_OBJS) $(LIB_OBJS)
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
 
+# test_keygen
+test_keygen: test_keygen.o $(INTERNAL_OBJS) $(LIB_OBJS)
+	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
+
+# test_aux_funcs
 test_aux_funcs: test_aux_funcs.o aux_funcs.o
 	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -40,4 +52,3 @@ clean:
 	rm -f *.o $(PROGS)
 
 .PHONY: all clean
-

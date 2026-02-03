@@ -14,6 +14,10 @@
  *
  */
 void IntegerToBytes(uint8_t *y, uint32_t x, size_t alpha) {
+  /* Computes a base-256 representation of x mod 256^alpha using little-endian
+  order
+  Input: x and alpha
+  Output; y of length alpha */
   uint32_t x_p = x;
   for (size_t i = 0; i < alpha; i++) {
     y[i] = (uint8_t)(x_p % 256);
@@ -67,9 +71,13 @@ void IntegerToBits(uint8_t *y, int32_t x, int alpha) {
 }
 
 uint32_t BitsToInteger(uint8_t *y, size_t alpha) {
+  /* Computes the integer value expresed by a bit string
+  using little-endian order
+  Input: a postivie integer alpha and a bit string y of length alpha
+  Output: a nonnegative integer x */
   uint32_t x = 0;
-  for (int i = 0; i < alpha; i++) {
-    x = 2 * x + y[alpha - i];
+  for (size_t i = 0; i < alpha; i++) {
+    x = 2 * x + y[alpha - 1 - i];
   }
   return x;
 }
@@ -108,16 +116,16 @@ void BytesToBits(uint8_t *y, uint8_t *z, size_t alpha) {
      Output: a bit string y of length 8alpha
      */
 
-  for (int i = 0; i < 8 * alpha; i++) {
+  for (size_t i = 0; i < 8 * alpha; i++) {
     y[i] = 0;
   }
 
   uint8_t z_copy[alpha];
-  for (int i = 0; i < alpha; i++) {
+  for (size_t i = 0; i < alpha; i++) {
     z_copy[i] = z[i];
   }
 
-  for (int i = 0; i < alpha; i++) {
+  for (size_t i = 0; i < alpha; i++) {
     for (int j = 0; j < 8; j++) {
       y[8 * i + j] = z_copy[i] % 2;
       z_copy[i] = z_copy[i] / 2;
@@ -142,6 +150,26 @@ void SimpleBitPack(uint8_t *z, int32_t w[256], int b) {
 
   BitsToBytes(z, bits, total_bits);
   return;
+}
+
+void SimpleBitUnpack(int32_t w[256], int b, uint8_t v[32 * bit_len(b)]) {
+  /* Reverses the procedure SimpleBitPack
+     Input: b in N, byte string v
+     Output: polynomial w in R
+  */
+  int c = bit_len(b);
+  size_t z_len = 8 * 32 * bit_len(b); // bits = 8 * bytes
+  uint8_t z[z_len];
+  BytesToBits(z, v, 32 * bit_len(b));
+
+  uint8_t bstr[c];
+
+  for (int i = 0; i < 256; i++) {
+    for (int j = 0; j < c; j++) {
+      bstr[j] = z[i * c + j]; // generate z[ic], z[ic+1], ...z[ic + c - 1]
+    }
+    w[i] = BitsToInteger(bstr, c);
+  }
 }
 
 void BitPack(uint8_t *z, int32_t w[256], int a, int b) {
@@ -264,4 +292,44 @@ void HintBitPack(uint8_t y[omega + k], bool h[k][256]) {
     }
     y[omega + i] = index;
   }
+}
+
+int HintBitUnpack(bool h[k][256], uint8_t y[omega + k]) {
+  /* Reverses the procedure HintBitPack
+  Input: a byte string y of length w+k that encodes h as described above
+  Output: a polynomial vector h in R^k_2
+  */
+
+  for (int i = 0; i < k; i++) {
+    for (int j = 0; j < 256; j++) {
+      h[i][j] = 0;
+    }
+  }
+  int index = 0;
+  int first;
+
+  for (int i = 0; i < k; i++) {
+    if (y[omega + i] < index || y[omega + i] > omega) {
+      return -1;
+    }
+    first = index;
+
+    while (index < y[omega + i]) {
+      if (index > first) {
+        if (y[index - 1] >= y[index]) {
+          return -1;
+        }
+      }
+      h[i][y[index]] = 1;
+      index++;
+    }
+  }
+
+  for (int i = index; i < omega; i++) {
+    if (y[i] != 0) {
+      return -1;
+    }
+  }
+
+  return 0;
 }

@@ -6,7 +6,7 @@
 #define K_MAX 4
 #define L_MAX 4
 
-#include "KeyGen_internal.c"
+#include "KeyGen_internal.h"
 
 int main() {
   printf("Starting KeyGen Test...\n");

@@ -216,7 +216,8 @@ void Power2Round(int32_t r, int32_t r_decomp[2]) {
    *   r0 in [-(2^{d-1}-1), 2^{d-1}]  and  r1 in {0,...}
    */
   int32_t rp = r % q;
-  if (rp < 0) rp += q;
+  if (rp < 0)
+    rp += q;
 
   int32_t r1 = (rp + (1 << (d - 1)) - 1) >> d;
   int32_t r0 = rp - (r1 << d);
@@ -250,7 +251,6 @@ void pkEncode(uint8_t *pk, uint8_t rho[32], int32_t t1[k][256]) {
 
 void skEncode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
               int32_t s1[l][256], int32_t s2[k][256], int32_t t0[k][256]) {
- 
 
   memset(sk, 0, sk_len);
 
@@ -260,7 +260,7 @@ void skEncode(uint8_t *sk, uint8_t rho[32], uint8_t K[32], uint8_t tr[64],
   memcpy(sk + 64, tr, 64);
 
   const int s_pack_size = 32 * bit_len(2 * ETA); /* 96 for ETA=2 */
-  const int t0_pack_size = 32 * d;              /* 416 for d=13 */
+  const int t0_pack_size = 32 * d;               /* 416 for d=13 */
 
   uint8_t buf_s[128];
   uint8_t buf_t0[32 * d];
@@ -304,7 +304,7 @@ int KeyGen_internal(uint8_t seed[32], uint8_t *pk, uint8_t *sk) {
   int32_t t[k][256];
   int32_t t_decomp[k][256][2];
   int32_t t_0_round[k][256]; /* t0 from Power2Round */
-  int32_t t_1[k][256];        /* t1 from Power2Round */
+  int32_t t_1[k][256];       /* t1 from Power2Round */
 
   uint8_t tr[64];
   size_t in_len_H;

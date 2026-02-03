@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "Sign_internal.c"
+#include "KeyGen_internal.h"
+#include "Sign_internal.h"
 #include "randombytes.h"
 
 int Sign(size_t len_sigma, uint8_t sigma[len_sigma], uint8_t *sk,
@@ -45,16 +46,19 @@ int Sign(size_t len_sigma, uint8_t sigma[len_sigma], uint8_t *sk,
 
   BytesToBits(out, in, ctx_len + 2);
 
-  size_t Mp_size = ctx_len + 2 + M_len;
+  // M' = BytesToBits(0 || ctx_len || ctx) || M
+  // BytesToBits expands each byte to 8 bits, so output is 8*(ctx_len+2) bytes
+  size_t Mp_size = 8 * (ctx_len + 2) + M_len;
   uint8_t Mp[Mp_size];
 
-  memcpy(Mp, out, ctx_len + 2);
-  memcpy(Mp + ctx_len + 2, M, M_len);
+  memcpy(Mp, out, 8 * (ctx_len + 2));
+  memcpy(Mp + 8 * (ctx_len + 2), M, M_len);
 
   Sign_internal(sigma, sk, Mp, Mp_size, rnd);
   return 0;
 }
 
+#ifdef SIGN_MAIN
 int main() {
   // sk_len = 128 + 32 * ((k+l)*3 + d*k) = 128 + 32*76 = 2560 bytes
   // pk_size = 32 * k * 10 = 1280 bytes
@@ -69,7 +73,7 @@ int main() {
     return 1;
   }
 
-  const char *message = "Hello, this is a test message!";
+  const char *message = "Hello, this is a test message lol!";
   printf("The message is: %s\n", message);
   size_t M_len = strlen(message);
 
@@ -98,3 +102,4 @@ int main() {
 
   return 0;
 }
+#endif // SIGN_MAIN

@@ -1,3 +1,4 @@
+#include "NTTarithmetic.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -29,7 +30,7 @@ void MultiplyNTT(int len, int32_t c[len], const int32_t a[len],
 
 void ScalarVectorNTT(size_t len, int32_t w[len][256], int32_t c[256],
                      int32_t v[len][256]) {
-  for (int i = 0; i < len; i++) {
+  for (size_t i = 0; i < len; i++) {
     MultiplyNTT(256, w[i], c, v[i]);
   }
 }
