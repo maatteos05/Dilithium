@@ -2,8 +2,6 @@
 
 An implementation of the post-quantum **Crystals-Dilithium** digital signature scheme in standard C, conformed to the [FIPS 204: Module-Lattice-Based Digital Signature Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf).
 
-This project was developed by Matteo Sainton under the supervision of **Prof. Banegas at Inria Saclay** as part of a Bachelor's Thesis.
-
 ---
 
 ## 1. What the Project is About
