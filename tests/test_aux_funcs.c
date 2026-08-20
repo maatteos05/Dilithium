@@ -139,7 +139,7 @@ int main() {
 
     int bound = 7;                      // bit_len(7) = 3
     int out_size = 32 * bit_len(bound); // 32 * 3 = 96 bytes
-    uint8_t z[96];
+    uint8_t z[out_size];
 
     SimpleBitPack(z, poly, bound);
 

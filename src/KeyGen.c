@@ -13,9 +13,9 @@
 
 int KeyGen(uint8_t *sk, uint8_t *pk) {
   uint8_t seed[32] = {0};
-  // randombytes(seed, sizeof(seed));
-  seed[0] = 0x1;
-  seed[1] = 0xFF;
+  if (randombytes(seed, sizeof(seed)) != 0) {
+    return -1;
+  }
 
   return KeyGen_internal(seed, pk, sk);
 }

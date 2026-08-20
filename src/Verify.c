@@ -6,6 +6,7 @@
 
 #include "KeyGen_internal.h"
 #include "Sign.h"
+#include "Verify.h"
 #include "Verify_internal.h"
 
 bool Verify(uint8_t *pk, uint8_t *M, size_t M_len, size_t len_sigma,

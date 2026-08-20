@@ -93,7 +93,7 @@ int main() {
   }
 
   printf("The signed message is:\n");
-  for (int i = 0; i < len_sigma; i++) {
+  for (size_t i = 0; i < len_sigma; i++) {
     printf("%02x", sigma[i]); // Hex, 2 digits per byte
     if ((i + 1) % 32 == 0)
       printf("\n"); // Newline every 32
